@@ -4,6 +4,7 @@
  * TODO: start using good coding practices
  */
 
+require('dotenv').config()
 const Discord = require('discord.js');
 const client = new Discord.Client();
 const schedule = require('node-schedule');
@@ -16,8 +17,8 @@ const disbut = require('discord-buttons')(client);
 
 
 var spotifyApi = new SpotifyWebApi({
-    clientId: '446b696059ad4bdea712890eb08ba00a',
-    clientSecret: '9ce06214c53f4f6c9d70b221e10e6c07',
+    clientId: process.env.SPOTI_CL_ID,
+    clientSecret: SPOTI_CL_SCR,
     redirectUri: 'http://www.example.com/callback'
 });
 
@@ -515,4 +516,4 @@ client.on('voiceStateUpdate', (memberBeforeJoin, memberAfterJoin) => { // scream
     }
 })
 
-client.login('ODMwODQxOTA5MTYwODM3MTUx.YHMj0w.QGJapSrdIYHQ3-oLyMcqUY4C4U8');
+client.login(process.env.DSC_TOKEN);

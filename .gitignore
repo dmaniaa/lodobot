@@ -365,3 +365,6 @@ FodyWeavers.xsd
 # [custom] we don't want the audio files uploading to github, right?
 
 audio/
+
+# [custom] let's hide all the keys ofc
+.env
