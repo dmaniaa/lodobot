@@ -18,7 +18,7 @@ const disbut = require('discord-buttons')(client);
 
 var spotifyApi = new SpotifyWebApi({
     clientId: process.env.SPOTI_CL_ID,
-    clientSecret: SPOTI_CL_SCR,
+    clientSecret: process.env.SPOTI_CL_SCR,
     redirectUri: 'http://www.example.com/callback'
 });
 
