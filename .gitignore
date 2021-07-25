@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# [custom] we don't want the audio files uploading to github, right?
+
+audio/
