@@ -21,6 +21,8 @@ var spotifyApi = new SpotifyWebApi({
     redirectUri: 'http://www.example.com/callback'
 });
 
+// spotify integration tests, may come in handy later, for now unused
+
 /* spotifyApi.clientCredentialsGrant().then(
     function (data) {
         //console.log('The access token expires in ' + data.body['expires_in']);
@@ -39,14 +41,16 @@ var spotifyApi = new SpotifyWebApi({
     function (err) {
         console.log('Something went wrong when retrieving an access token', err);
     }
-); */
+);
 
 async function spoti_test() {
     const creds = await spotifyApi.clientCredentialsGrant()
     await spotifyApi.setAccessToken(creds.body['access_token'])
     const playlist = await spotifyApi.getPlaylist('37i9dQZF1DXd1MXcE8WTXq')
     console.log(playlist.body.tracks.items)
-}
+} */
+
+// some internal info for the bot to use, TODO: clean that stuff up
 
 let is_playing = false
 let queue = new Array()
@@ -58,16 +62,20 @@ const botColor = 0xcf58d1
 
 let jump_number = 0
 
+// config placeholder, no better idea, but gets the job done for now, TODO: come up with a better way to store the config
+
 let config = {
     papaj: false,
     krzykacz: false
 }
 
 
-function sendToLog(user, mess) {
+function sendToLog(user, mess) { // simple logging function 
     const date = new Date()
     console.log('[' + date.toLocaleString("pl-PL") + '] ' + '[' + user + ']' + ': ' + mess)
 }
+
+// music player related helper functions
 
 async function get_info(link) {
     let info = await ytdl.getInfo(link)
@@ -115,7 +123,7 @@ client.on('ready', () => {
         type: "LISTENING"
     }
     );
-    const papaj_job = schedule.scheduleJob('* 37 21 * * *', async function () {
+    const papaj_job = schedule.scheduleJob('* 37 21 * * *', async function () {  // plays barka everyday at 21:37
         if (config.papaj == true) {
             if (!is_playing) {
                 const all_voice = client.guilds.cache.get('804799693581975594').channels.cache.get('804802536551743569').children
@@ -142,15 +150,26 @@ client.on('ready', () => {
             }
         }
     })
-    const jump_job = schedule.scheduleJob('*/5 * * * * *', function () {
+
+    const jump_job = schedule.scheduleJob('*/5 * * * * *', function () { // reset number of jumps between channels every 5 secs, TODO: place it somewhere where it belongs
         jump_number = 0
     })
 });
 
 client.on('message', async msg => {
+    // do nothing if the message is from the bot or it doesn't use the set prefix
+
     if (msg.author.bot) return;
     if (!msg.content.startsWith(prefix)) return;
 
+    /* parse the message into a separate object containing the command and it's parameters
+      * eg. ./config something on is parsed into:
+      * message.command = config
+      * params[0] = something
+      * params[1] = on
+      * it's a surprise tool that will help us later
+      * TODO: make it take up one line instead of five like a dumbass
+      * */
 
     const full = msg.content.toLowerCase()
     const full_no_pref = full.substring(prefix.length)
@@ -165,7 +184,7 @@ client.on('message', async msg => {
 
     sendToLog(msg.member.user.tag, 'wysłano ' + JSON.stringify(message))
 
-    if (message.command === 'help') {
+    if (message.command === 'help') { // help message with a list of commands, TODO: somehow make it translatable
         const messageEmbed = {
             color: botColor,
             title: 'lodobot v21.3.7',
@@ -199,7 +218,7 @@ client.on('message', async msg => {
         }
         msg.channel.send({ embed: messageEmbed })
     }
-    if (message.command === 'nie wiem') {
+    if (message.command === 'nie wiem') { // plays one of the sounds on the voice channel of the caller, and leaves
         const vc = msg.member.voice.channel
         if (is_playing) return
         if (!vc) {
@@ -229,11 +248,11 @@ client.on('message', async msg => {
         }
     }
 
-    if (message.command === 'loda?') {
+    if (message.command === 'loda?') { 
         msg.reply('a pytasz dzika czy sra w lesie? zawsze jest pora na looooooda')
     }
 
-    if (message.command === 'drzwi') {
+    if (message.command === 'drzwi') { // copy and paste from the previous audio player, TODO: turn it into a function that plays any audio file
         const vc = msg.member.voice.channel
         if (is_playing) return
         if (!vc) {
@@ -263,7 +282,7 @@ client.on('message', async msg => {
             console.log(err)
         }
     }
-    if (message.command === 'shee') {
+    if (message.command === 'shee') { // ditto, see how dumb this is
         const vc = msg.member.voice.channel
         if (is_playing) return
         if (!vc) {
@@ -294,7 +313,7 @@ client.on('message', async msg => {
         }
     }
 
-    if (message.command === 'play' || message.command === 'p') {
+    if (message.command === 'play' || message.command === 'p') { // youtube music player, currently very broken and freezes the bot often, TODO: fix this
         vc = msg.member.voice.channel
         if (!vc) {
             msg.channel.send({
@@ -426,7 +445,7 @@ client.on('message', async msg => {
         msg.channel.send(embed)
     }
 
-    /* if (message.command === 'game') {
+    /* if (message.command === 'game') { // idea for making a game lobby automatically, TODO: get working on this 
         let button = new MessageButton()
             .setLabel("Zagraj!")
             .setStyle('blurple')
@@ -434,7 +453,11 @@ client.on('message', async msg => {
         await msg.channel.send(`${msg.author.username} chce zagrać! Kolejka: \n${msg.author.username}`, button);
     } */
 
-    if (message.command === 'config') {
+    /* client.on('clickButton', async (button) => {
+    await button.message.edit('Ktoś mie kliknął uwu')
+}); */
+
+    if (message.command === 'config') { // config management, not very pretty but works well
         if (message.params[0] === 'papaj') {
             if (message.params[1] === 'on') {
                 msg.channel.send('papaj on')
@@ -467,16 +490,14 @@ client.on('message', async msg => {
     }
 });
 
-/* client.on('clickButton', async (button) => {
-    await button.message.edit('Ktoś mie kliknął uwu')
-}); */
 
-client.on('voiceStateUpdate', (memberBeforeJoin, memberAfterJoin) => {
+client.on('voiceStateUpdate', (memberBeforeJoin, memberAfterJoin) => { // screams a message on a channel if people are moving around channels waaaay too fast
     if (config.krzykacz == true) {
+        // don't scream if a user is jumping around the ping-pong channels on our server, it's a looong story
         if (memberAfterJoin.channelID != '848546786032615436' || memberAfterJoin.channelID != '848546824498315274' || memberAfterJoin.channelID != '849004787188891659' || memberAfterJoin.channelID != '848546799186214962') {
             jump_number++
         }
-        if (jump_number > 5) {
+        if (jump_number > 5) { // more than 5 jumps in 5 seconds
             client.channels.cache.get('804802612171767828').send(`PRZESTAŃCIE SIĘ KURWA PRZERZUCAĆ`)
         }
     }
