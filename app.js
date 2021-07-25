@@ -458,6 +458,10 @@ client.on('message', async msg => {
 }); */
 
     if (message.command === 'config') { // config management, not very pretty but works well
+        if (!msg.member.roles.cache.some(role => role.id === '866777290330341427')) { // checking for the "jebani programiści" role so that everyone can't change the settings
+            msg.channel.send('oj nie nie byniu tobie nie wolno tego używać')
+            return
+        }
         if (message.params[0] === 'papaj') {
             if (message.params[1] === 'on') {
                 msg.channel.send('papaj on')
@@ -466,6 +470,10 @@ client.on('message', async msg => {
             else if (message.params[1] === 'off') {
                 msg.channel.send('papaj off')
                 config.papaj = false
+            }
+            else if (!message.params[1]) {
+                if (config.papaj == true) msg.channel.send('status papaja: on')
+                else msg.channel.send('status papaja: off')
             }
             else {
                 msg.channel.send('nie kumam szefie')
@@ -479,6 +487,10 @@ client.on('message', async msg => {
             else if (message.params[1] === 'off') {
                 msg.channel.send('krzykacz off')
                 config.krzykacz = false
+            }
+            else if (!message.params[1]) {
+                if (config.krzykacz == true) msg.channel.send('status krzykacza: on')
+                else msg.channel.send('status krzykacza: off')
             }
             else {
                 msg.channel.send('nie kumam szefie')
