@@ -218,7 +218,7 @@ client.on('message', async msg => {
         }
         msg.channel.send({ embed: messageEmbed })
     }
-    if (message.command === 'nie wiem') { // plays one of the sounds on the voice channel of the caller, and leaves
+    if (message.command === 'nie_wiem') { // plays one of the sounds on the voice channel of the caller, and leaves
         const vc = msg.member.voice.channel
         if (is_playing) return
         if (!vc) {
