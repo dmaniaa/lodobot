@@ -1,3 +1,9 @@
+
+/* lodobot - a random bot for shits and giggles
+ * 2021 - Daniel Mania
+ * TODO: start using good coding practices
+ */
+
 const Discord = require('discord.js');
 const client = new Discord.Client();
 const schedule = require('node-schedule');
@@ -477,5 +483,3 @@ client.on('voiceStateUpdate', (memberBeforeJoin, memberAfterJoin) => {
 })
 
 client.login('ODMwODQxOTA5MTYwODM3MTUx.YHMj0w.QGJapSrdIYHQ3-oLyMcqUY4C4U8');
-
-
