@@ -117,6 +117,36 @@ function play_file(msg) {
 
 }
 
+async function play_audio(msg, path) { //function to play audio, finally, based on previous code
+    const vc = msg.member.voice.channel
+    if (is_playing) return
+    if (!vc) {
+        msg.channel.send({
+            embed: {
+                color: botColor,
+                fields: [
+                    {
+                        name: 'Błąd',
+                        value: 'Musisz być na kanale głosowym!'
+                    }
+                ]
+            }
+        })
+        return
+    }
+    try {
+        const conn = await vc.join()
+        const playing = conn.play(path)
+        playing.on('finish', end => {
+            is_playing = false
+            vc.leave()
+        })
+    }
+    catch (err) {
+        sendToLog(msg.member.user.tag,err)
+    }
+}
+
 client.on('ready', () => {
     sendToLog(client.user.tag, 'Dołączono')
     client.user.setActivity(
@@ -219,99 +249,19 @@ client.on('message', async msg => {
         }
         msg.channel.send({ embed: messageEmbed })
     }
-    if (message.command === 'nie_wiem') { // plays one of the sounds on the voice channel of the caller, and leaves
-        const vc = msg.member.voice.channel
-        if (is_playing) return
-        if (!vc) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Musisz być na kanale głosowym!'
-                        }
-                    ]
-                }
-            })
-            return
-        }
-        try {
-            const conn = await vc.join()
-            const playing = conn.play('./audio/ty-no-nie-wiem.mp3')
-            playing.on('finish', end => {
-                is_playing = false
-                vc.leave()
-            })
-        }
-        catch (err) {
-            console.log(err)
-        }
+    if (message.command === 'nie_wiem') { 
+        await play_audio(msg, './audio/ty-no-nie-wiem.mp3') //using new function
     }
 
     if (message.command === 'loda?') { 
         msg.reply('a pytasz dzika czy sra w lesie? zawsze jest pora na looooooda')
     }
 
-    if (message.command === 'drzwi') { // copy and paste from the previous audio player, TODO: turn it into a function that plays any audio file
-        const vc = msg.member.voice.channel
-        if (is_playing) return
-        if (!vc) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Musisz być na kanale głosowym!'
-                        }
-                    ]
-                }
-            })
-            return
-        }
-        try {
-            const conn = await vc.join()
-            const playing = conn.play('./audio/drzwi.mp3')
-            is_playing = true
-            playing.on('finish', end => {
-                is_playing = false
-                vc.leave()
-            })
-        }
-        catch (err) {
-            console.log(err)
-        }
+    if (message.command === 'drzwi') { 
+        await play_audio(msg, './audio/drzwi.mp3')
     }
-    if (message.command === 'shee') { // ditto, see how dumb this is
-        const vc = msg.member.voice.channel
-        if (is_playing) return
-        if (!vc) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Musisz być na kanale głosowym!'
-                        }
-                    ]
-                }
-            })
-            return
-        }
-        try {
-            const conn = await vc.join()
-            const playing = conn.play('./audio/shee.wav')
-            is_playing = true
-            playing.on('finish', end => {
-                is_playing = false
-                vc.leave()
-            })
-        }
-        catch (err) {
-            console.log(err)
-        }
+    if (message.command === 'shee') { 
+        await play_audio(msg, './audio/shee.wav')
     }
 
     if (message.command === 'play' || message.command === 'p') { // youtube music player, currently very broken and freezes the bot often, TODO: fix this
