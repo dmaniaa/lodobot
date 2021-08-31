@@ -1,19 +1,19 @@
 {
   "dependencies": {
-    "discord-buttons": "^3.1.1",
+    "discord-buttons": "^4.0.0",
     "discord-rich-presence": "^0.0.8",
     "discord-rpc": "^4.0.1",
-    "discord.js": "^12.5.3",
+    "discord.js": "^13.1.0",
     "dotenv": "^10.0.0",
     "node-schedule": "^2.0.0",
     "opusscript": "^0.0.8",
     "spotify-web-api-node": "^5.0.2",
-    "yt-search": "^2.8.0",
-    "ytdl-core": "^4.5.0"
+    "yt-search": "^2.10.1",
+    "ytdl-core": "^4.9.1"
   },
   "name": "lodobot",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

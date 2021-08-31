@@ -6,15 +6,22 @@
 
 require('dotenv').config()
 const Discord = require('discord.js');
-const client = new Discord.Client();
+
+const botInts = new Discord.Intents();
+botInts.add(
+    Discord.Intents.FLAGS.GUILD_MESSAGES,
+    Discord.Intents.FLAGS.GUILD_VOICE_STATES,
+    Discord.Intents.FLAGS.GUILDS
+)
+const client = new Discord.Client({ intents: botInts });
+
 const schedule = require('node-schedule');
 var SpotifyWebApi = require('spotify-web-api-node');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
 const yts = require('yt-search');
-const { MessageActionRow, MessageButton } = require('discord-buttons');
-const disbut = require('discord-buttons')(client);
 
+const basics = require('./functions/basics.js')
 
 var spotifyApi = new SpotifyWebApi({
     clientId: process.env.SPOTI_CL_ID,
@@ -79,6 +86,7 @@ function sendToLog(user, mess) { // simple logging function
 // music player related helper functions
 
 async function get_info(link) {
+    //sendToLog('get_info_link',link)
     let info = await ytdl.getInfo(link)
     ytdl.chooseFormat(info.formats, { quality: 'highestaudio' })
     return info
@@ -187,10 +195,13 @@ client.on('ready', () => {
     })
 });
 
-client.on('message', async msg => {
+client.on('messageCreate', async msg => {
     // do nothing if the message is from the bot or it doesn't use the set prefix
 
     if (msg.author.bot) return;
+    if (msg.mentions.has(client.user)) {
+        msg.channel.send('Wpisz ' + prefix + 'help żeby zobaczyć listę komend!')
+    }
     if (!msg.content.startsWith(prefix)) return;
 
     /* parse the message into a separate object containing the command and it's parameters
@@ -199,14 +210,12 @@ client.on('message', async msg => {
       * params[0] = something
       * params[1] = on
       * it's a surprise tool that will help us later
-      * TODO: make it take up one line instead of five like a dumbass
       * */
 
-    const full = msg.content.toLowerCase()
-    const full_no_pref = full.substring(prefix.length)
-    const split = full_no_pref.split(' ')
+    const split = msg.content.substring(prefix.length).split(' ')
     const command = split.shift()
     const params = split
+
 
     const message = {
         command: command,
@@ -215,8 +224,10 @@ client.on('message', async msg => {
 
     sendToLog(msg.member.user.tag, 'wysłano ' + JSON.stringify(message))
 
+    
+
     if (message.command === 'help') { // help message with a list of commands, TODO: somehow make it translatable
-        const messageEmbed = {
+        /* const messageEmbed = {
             color: botColor,
             title: 'lodobot v21.3.7',
             description: 'Dostępne komendy:',
@@ -247,7 +258,8 @@ client.on('message', async msg => {
                 }
             ]
         }
-        msg.channel.send({ embed: messageEmbed })
+        msg.channel.send({ embed: messageEmbed }) */
+        basics.help(msg, botColor, prefix, 'msg')
     }
     if (message.command === 'nie_wiem') { 
         await play_audio(msg, './audio/ty-no-nie-wiem.mp3') //using new function
@@ -282,7 +294,7 @@ client.on('message', async msg => {
         }
 
         let link = null
-        sendToLog('song', message.params[0])
+        //sendToLog('song', message.params.join(' '))
         if (message.params[0].startsWith('https://youtube.com/watch?v=') || message.params[0].startsWith('https://www.youtube.com/watch?v=')) {
             link = message.params[0]
         }
@@ -291,17 +303,19 @@ client.on('message', async msg => {
             link = results.all[0].url
         }
         const info = await get_info(link)
-        msg.channel.send({
-            embed: {
-                color: botColor,
-                fields: [
-                    {
-                        name: 'Dodano do kolejki:',
-                        value: info.videoDetails.title
-                    }
-                ]
-            }
-        })
+        if (queue.length) {
+            msg.channel.send({
+                embed: {
+                    color: botColor,
+                    fields: [
+                        {
+                            name: 'Dodano do kolejki:',
+                            value: info.videoDetails.title
+                        }
+                    ]
+                }
+            })
+        }
         queue.push(info)
         if (!is_playing) {
             conn = await vc.join()
@@ -407,6 +421,8 @@ client.on('message', async msg => {
     /* client.on('clickButton', async (button) => {
     await button.message.edit('Ktoś mie kliknął uwu')
 }); */
+
+    //discord-buttons now outdated, probably a part of discord.js, hopefully
 
     if (message.command === 'config') { // config management, not very pretty but works well
         if (!msg.member.roles.cache.some(role => role.id === '866777290330341427')) { // checking for the "jebani programiści" role so that everyone can't change the settings
