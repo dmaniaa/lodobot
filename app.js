@@ -20,6 +20,7 @@ var SpotifyWebApi = require('spotify-web-api-node');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
 const yts = require('yt-search');
+const { joinVoiceChannel, createAudioPlayer, NoSubscriberBehavior, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 
 const basics = require('./functions/basics.js')
 
@@ -64,6 +65,11 @@ let is_playing = false
 let queue = new Array()
 let conn = null
 let vc = null
+let player = createAudioPlayer({
+    behaviors: {
+        noSubscriber: NoSubscriberBehavior.Pause,
+    },
+});
 
 const prefix = './';
 const botColor = 0xcf58d1
@@ -95,34 +101,35 @@ async function get_info(link) {
 function play_file(msg) {
     const curr_info = queue[0]
     sendToLog(msg.member.user.tag, 'Odtwarzanie: ' + curr_info.videoDetails.title)
-    msg.channel.send({
-        embed: {
-            color: botColor,
-            fields: [
-                {
-                    name: 'Odtwarzanie:',
-                    value: curr_info.videoDetails.title
-                }
-            ]
-        }
-    })
+    const embed = {
+        color: botColor,
+        fields: [
+            {
+                name: 'Odtwarzanie:',
+                value: curr_info.videoDetails.title
+            }
+        ]
+    }
+    msg.channel.send({ embeds: [embed] })
 
     is_playing = true
-    const dispatcher = conn.play(ytdl.downloadFromInfo(curr_info))
-        .on("finish", () => {
-            is_playing = false
-            queue.shift()
+    player.play(createAudioResource(ytdl.downloadFromInfo(curr_info)))
+    conn.subscribe(player)
+    player.on(AudioPlayerStatus.Idle, () => {
+        is_playing = false
+        queue.shift()
             if (queue[0]) {
                 sendToLog('play_file(after finish)', 'rekurencja, next')
                 play_file(msg)
             }
             else {
                 sendToLog('play_file(after finish)', 'koniec kolejki')
+                player.stop()
                 vc.leave()
             }
 
         })
-
+ 
 }
 
 async function play_audio(msg, path) { //function to play audio, finally, based on previous code
@@ -199,6 +206,7 @@ client.on('messageCreate', async msg => {
     // do nothing if the message is from the bot or it doesn't use the set prefix
 
     if (msg.author.bot) return;
+    if (msg.content.includes("@here") || msg.content.includes("@everyone")) return false;
     if (msg.mentions.has(client.user)) {
         msg.channel.send('Wpisz ' + prefix + 'help żeby zobaczyć listę komend!')
     }
@@ -318,7 +326,11 @@ client.on('messageCreate', async msg => {
         }
         queue.push(info)
         if (!is_playing) {
-            conn = await vc.join()
+            conn = await joinVoiceChannel({
+                channelId: vc.id,
+                guildId: msg.guild.id,
+                adapterCreator: msg.guild.voiceAdapterCreator
+            })
             play_file(msg)
         }
 
