@@ -1,5 +1,5 @@
 function help(msg, botColor, prefix, type) { //first param is msg/future inter, botColor and prefix are global settings, type is either msg or inter
-    const messageEmbed = {
+    const embed = {
         color: botColor,
         title: 'lodobot v21.3.7',
         description: 'Dostêpne komendy:',
@@ -30,7 +30,7 @@ function help(msg, botColor, prefix, type) { //first param is msg/future inter, 
             }
         ]
     }
-    msg.channel.send({ embeds: [messageEmbed] })
+    msg.channel.send({ embeds: [embed] })
     return 0;
 }
 exports.help = help;

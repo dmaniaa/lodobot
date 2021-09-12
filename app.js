@@ -16,7 +16,7 @@ botInts.add(
 const client = new Discord.Client({ intents: botInts });
 
 const schedule = require('node-schedule');
-var SpotifyWebApi = require('spotify-web-api-node');
+//var SpotifyWebApi = require('spotify-web-api-node');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
 const yts = require('yt-search');
@@ -24,11 +24,11 @@ const { joinVoiceChannel, createAudioPlayer, NoSubscriberBehavior, createAudioRe
 
 const basics = require('./functions/basics.js')
 
-var spotifyApi = new SpotifyWebApi({
+/* var spotifyApi = new SpotifyWebApi({
     clientId: process.env.SPOTI_CL_ID,
     clientSecret: process.env.SPOTI_CL_SCR,
     redirectUri: 'http://www.example.com/callback'
-});
+}); */
 
 // spotify integration tests, may come in handy later, for now unused
 
@@ -65,11 +65,18 @@ let is_playing = false
 let queue = new Array()
 let conn = null
 let vc = null
-let player = createAudioPlayer({
+const player = createAudioPlayer({
     behaviors: {
         noSubscriber: NoSubscriberBehavior.Pause,
     },
 });
+const audio_player = createAudioPlayer({
+    behaviors: {
+        noSubscriber: NoSubscriberBehavior.Pause,
+    },
+});
+let subscription = null
+
 
 const prefix = './';
 const botColor = 0xcf58d1
@@ -111,54 +118,74 @@ function play_file(msg) {
         ]
     }
     msg.channel.send({ embeds: [embed] })
-
-    is_playing = true
     player.play(createAudioResource(ytdl.downloadFromInfo(curr_info)))
-    conn.subscribe(player)
+    sendToLog('play_file', 'player started')
+    if (!subscription) {
+        sendToLog('play_file', 'audio player subscribed')
+        subscription = conn.subscribe(player)
+    }
+    is_playing = true
     player.on(AudioPlayerStatus.Idle, () => {
-        is_playing = false
+        sendToLog('play_file', 'audio player finished')
         queue.shift()
-            if (queue[0]) {
-                sendToLog('play_file(after finish)', 'rekurencja, next')
-                play_file(msg)
-            }
-            else {
-                sendToLog('play_file(after finish)', 'koniec kolejki')
-                player.stop()
-                vc.leave()
-            }
+        if (queue[0]) {
+            sendToLog('play_file', 'next track')
+            play_file(msg)
+        }
+        else {
+            sendToLog('play_file', 'end of queue')
+            is_playing = false
+            subscription.unsubscribe()
+            sendToLog('play_file', 'audio player unsubscribed')
+        }
+    })
 
-        })
- 
 }
 
 async function play_audio(msg, path) { //function to play audio, finally, based on previous code
     const vc = msg.member.voice.channel
-    if (is_playing) return
+    if (is_playing) {
+        sendToLog('play_audio', 'already playing')
+        return
+    }
     if (!vc) {
-        msg.channel.send({
-            embed: {
-                color: botColor,
-                fields: [
-                    {
-                        name: 'Błąd',
-                        value: 'Musisz być na kanale głosowym!'
-                    }
-                ]
-            }
-        })
+        const embed = {
+            color: botColor,
+            fields: [
+                {
+                    name: 'Błąd',
+                    value: 'Musisz być na kanale głosowym!'
+                }
+            ]
+        }
+        msg.channel.send({ embeds: [embed] })
         return
     }
     try {
-        const conn = await vc.join()
-        const playing = conn.play(path)
-        playing.on('finish', end => {
+        is_playing = true
+        if (!conn) {
+            sendToLog('play_audio', 'no conn, making')
+            conn = await joinVoiceChannel({
+                channelId: vc.id,
+                guildId: msg.guild.id,
+                adapterCreator: msg.guild.voiceAdapterCreator
+            })
+        }
+        audio_player.play(createAudioResource(path))
+        sendToLog('play_audio', 'player started')
+        subscription = await conn.subscribe(audio_player)
+        sendToLog('play_audio', 'audio player subscribed')
+        audio_player.on(AudioPlayerStatus.Idle, () => {
+            sendToLog('play_audio', 'audio player finished')
             is_playing = false
-            vc.leave()
+            subscription.unsubscribe()
+            subscription = null
+            sendToLog('play_audio', 'audio player unsubscribed')
+            //audio_conn.destroy()
         })
     }
     catch (err) {
-        sendToLog(msg.member.user.tag,err)
+        sendToLog(msg.member.user.tag, err)
     }
 }
 
@@ -181,12 +208,19 @@ client.on('ready', () => {
                 //console.log(with_users)
                 if (with_users) {
                     sendToLog(client.user.tag, 'Bareczka leci')
-                    const conn = await with_users.join()
-                    const playing = conn.play('./audio/barka.mp3')
+                    if (!conn) {
+                        conn = await joinVoiceChannel({
+                            channelId: vc.id,
+                            guildId: msg.guild.id,
+                            adapterCreator: msg.guild.voiceAdapterCreator
+                        })
+                    }
+                    player.play(createAudioResource('./audio/barka.mp3'))
+                    conn.subscribe(player)
                     is_playing = true
-                    playing.on('finish', end => {
+                    player.on(AudioPlayerStatus.Idle, () => {
                         is_playing = false
-                        with_users.leave()
+                        conn.destroy()
                     })
                 }
                 else {
@@ -232,7 +266,7 @@ client.on('messageCreate', async msg => {
 
     sendToLog(msg.member.user.tag, 'wysłano ' + JSON.stringify(message))
 
-    
+
 
     if (message.command === 'help') { // help message with a list of commands, TODO: somehow make it translatable
         /* const messageEmbed = {
@@ -269,35 +303,34 @@ client.on('messageCreate', async msg => {
         msg.channel.send({ embed: messageEmbed }) */
         basics.help(msg, botColor, prefix, 'msg')
     }
-    if (message.command === 'nie_wiem') { 
+    if (message.command === 'nie_wiem') {
         await play_audio(msg, './audio/ty-no-nie-wiem.mp3') //using new function
     }
 
-    if (message.command === 'loda?') { 
+    if (message.command === 'loda?') {
         msg.reply('a pytasz dzika czy sra w lesie? zawsze jest pora na looooooda')
     }
 
-    if (message.command === 'drzwi') { 
+    if (message.command === 'drzwi') {
         await play_audio(msg, './audio/drzwi.mp3')
     }
-    if (message.command === 'shee') { 
+    if (message.command === 'shee') {
         await play_audio(msg, './audio/shee.wav')
     }
 
     if (message.command === 'play' || message.command === 'p') { // youtube music player, currently very broken and freezes the bot often, TODO: fix this
         vc = msg.member.voice.channel
         if (!vc) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Musisz być na kanale głosowym!'
-                        }
-                    ]
-                }
-            })
+            const embed = {
+                color: botColor,
+                fields: [
+                    {
+                        name: 'Błąd',
+                        value: 'Musisz być na kanale głosowym!'
+                    }
+                ]
+            }
+            msg.channel.send({ embeds: [embed] })
             return
         }
 
@@ -312,114 +345,114 @@ client.on('messageCreate', async msg => {
         }
         const info = await get_info(link)
         if (queue.length) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Dodano do kolejki:',
-                            value: info.videoDetails.title
-                        }
-                    ]
-                }
-            })
+            const embed = {
+                color: botColor,
+                fields: [
+                    {
+                        name: 'Dodano do kolejki:',
+                        value: info.videoDetails.title
+                    }
+                ]
+            }
+            msg.channel.send({ embeds: [embed] })
         }
         queue.push(info)
         if (!is_playing) {
-            conn = await joinVoiceChannel({
-                channelId: vc.id,
-                guildId: msg.guild.id,
-                adapterCreator: msg.guild.voiceAdapterCreator
-            })
+            if (!conn) {
+                conn = await joinVoiceChannel({
+                    channelId: vc.id,
+                    guildId: msg.guild.id,
+                    adapterCreator: msg.guild.voiceAdapterCreator
+                })
+            }
             play_file(msg)
         }
 
     }
     if (message.command === 'stop') {
-        vc = msg.member.voice.channel
-        vc.leave()
+        player.stop()
+        queue = []
+    }
+    if (message.command === 'leave') {
+        player.stop()
+        queue = []
+        conn.destroy()
         is_playing = false
     }
     if (message.command === 'skip' || message.command === 's') {
         vc = msg.member.voice.channel
         if (!vc) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Musisz być na kanale głosowym!'
-                        }
-                    ]
-                }
-            })
+            const embed = {
+                color: botColor,
+                fields: [
+                    {
+                        name: 'Błąd',
+                        value: 'Musisz być na kanale głosowym!'
+                    }
+                ]
+            }
+            msg.channel.send({ embeds: [embed] })
             return
         }
         if (!queue) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Kolejka jest pusta!'
-                        }
-                    ]
-                }
-            })
+            const embed = {
+                color: botColor,
+                fields: [
+                    {
+                        name: 'Błąd',
+                        value: 'Kolejka jest pusta!'
+                    }
+                ]
+            }
+            msg.channel.send({ embeds: [embed] })
             return
         }
-        conn.dispatcher.end()
+        player.stop()
     }
     if (message.command === 'queue' || message.command === 'q') {
         vc = msg.member.voice.channel
         if (!vc) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Musisz być na kanale głosowym!'
-                        }
-                    ]
-                }
-            })
-            return
-        }
-        if (!queue.length) {
-            msg.channel.send({
-                embed: {
-                    color: botColor,
-                    fields: [
-                        {
-                            name: 'Błąd',
-                            value: 'Kolejka jest pusta!'
-                        }
-                    ]
-                }
-            })
-            return
-        }
-        const embed = {
-            embed: {
+            const embed = {
                 color: botColor,
                 fields: [
                     {
-                        name: 'Kolejka: ',
-                        value: 'Kolejka odtwarzania'
+                        name: 'Błąd',
+                        value: 'Musisz być na kanale głosowym!'
                     }
                 ]
             }
+            msg.channel.send({ embeds: [embed] })
+            return
+        }
+        if (!queue.length) {
+            const embed = {
+                color: botColor,
+                fields: [
+                    {
+                        name: 'Błąd',
+                        value: 'Kolejka jest pusta!'
+                    }
+                ]
+            }
+            msg.channel.send({ embeds: [embed] })
+            return
+        }
+        const embed = {
+            color: botColor,
+            fields: [
+                {
+                    name: 'Kolejka: ',
+                    value: 'Kolejka odtwarzania'
+                }
+            ]
         }
         queue.forEach(function (song, i) {
-            embed.embed.fields.push({
+            embed.fields.push({
                 name: i + '. ' + song.videoDetails.title,
                 value: 'x'
             })
         })
-        msg.channel.send(embed)
+        msg.channel.send({ embeds: [embed] })
     }
 
     /* if (message.command === 'game') { // idea for making a game lobby automatically, TODO: get working on this 
