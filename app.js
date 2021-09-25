@@ -65,17 +65,9 @@ let is_playing = false
 let queue = new Array()
 let conn = null
 let vc = null
-const player = createAudioPlayer({
-    behaviors: {
-        noSubscriber: NoSubscriberBehavior.Pause,
-    },
-});
-const audio_player = createAudioPlayer({
-    behaviors: {
-        noSubscriber: NoSubscriberBehavior.Pause,
-    },
-});
+let player = null
 let subscription = null
+let stop = false
 
 
 const prefix = './';
@@ -87,7 +79,8 @@ let jump_number = 0
 
 let config = {
     papaj: false,
-    krzykacz: false
+    krzykacz: false,
+    autoplay: true
 }
 
 
@@ -98,6 +91,33 @@ function sendToLog(user, mess) { // simple logging function
 
 // music player related helper functions
 
+async function get_next(msg,curr_info) {
+    if (config.autoplay && curr_info && !queue.length) {
+        new_link = 'https://youtube.com' + curr_info.response.contents.twoColumnWatchNextResults.autoplay.autoplay.sets[0].autoplayVideo.commandMetadata.webCommandMetadata.url
+        sendToLog('autoplay_test', new_link)
+        new_info = await get_info(new_link)
+    }
+    else {
+        new_info = queue[0]
+    }
+    send_title(msg, new_info.videoDetails.title)
+    return new_info
+}
+
+function send_title(msg,title) {
+    const embed = {
+        color: botColor,
+        fields: [
+            {
+                name: 'Odtwarzanie:',
+                value: title
+            }
+        ]
+    }
+    msg.channel.send({ embeds: [embed] })
+    sendToLog(msg.member.user.tag, 'Odtwarzanie: ' + title)
+}
+
 async function get_info(link) {
     //sendToLog('get_info_link',link)
     let info = await ytdl.getInfo(link)
@@ -106,18 +126,16 @@ async function get_info(link) {
 }
 
 function play_file(msg) {
-    const curr_info = queue[0]
-    sendToLog(msg.member.user.tag, 'Odtwarzanie: ' + curr_info.videoDetails.title)
-    const embed = {
-        color: botColor,
-        fields: [
-            {
-                name: 'Odtwarzanie:',
-                value: curr_info.videoDetails.title
-            }
-        ]
+    curr_info = queue[0]
+    send_title(msg,curr_info.videoDetails.title)
+    if (!player) {
+        sendToLog('play_file', 'audio player created')
+        player = createAudioPlayer({
+            behaviors: {
+                noSubscriber: NoSubscriberBehavior.Pause,
+            },
+        });
     }
-    msg.channel.send({ embeds: [embed] })
     player.play(createAudioResource(ytdl.downloadFromInfo(curr_info)))
     sendToLog('play_file', 'player started')
     if (!subscription) {
@@ -125,19 +143,24 @@ function play_file(msg) {
         subscription = conn.subscribe(player)
     }
     is_playing = true
-    player.on(AudioPlayerStatus.Idle, () => {
+    player.on(AudioPlayerStatus.Idle, async () => {
         sendToLog('play_file', 'audio player finished')
         queue.shift()
-        if (queue[0]) {
+        if (queue[0] || config.autoplay && !stop) {
             sendToLog('play_file', 'next track')
-            play_file(msg)
+            new_info = await get_next(msg, curr_info)
+            curr_info = new_info
+            player.play(createAudioResource(ytdl.downloadFromInfo(curr_info)))
+            stop = false
         }
         else {
             sendToLog('play_file', 'end of queue')
             is_playing = false
-            subscription.unsubscribe()
-            sendToLog('play_file', 'audio player unsubscribed')
+            stop = false
         }
+    })
+    player.on('error', error => {
+        sendToLog('play_file', 'audio player error: '+error)
     })
 
 }
@@ -178,9 +201,7 @@ async function play_audio(msg, path) { //function to play audio, finally, based 
         audio_player.on(AudioPlayerStatus.Idle, () => {
             sendToLog('play_audio', 'audio player finished')
             is_playing = false
-            subscription.unsubscribe()
-            subscription = null
-            sendToLog('play_audio', 'audio player unsubscribed')
+
             //audio_conn.destroy()
         })
     }
@@ -344,7 +365,7 @@ client.on('messageCreate', async msg => {
             link = results.all[0].url
         }
         const info = await get_info(link)
-        if (queue.length) {
+        if (queue.length && !config.autoplay) {
             const embed = {
                 color: botColor,
                 fields: [
@@ -370,14 +391,20 @@ client.on('messageCreate', async msg => {
 
     }
     if (message.command === 'stop') {
-        player.stop()
         queue = []
+        sendToLog('stop', 'queue cleaned')
+        stop = true
+        player.stop()
+        sendToLog('stop', 'player stop done')
+        player = null
     }
     if (message.command === 'leave') {
-        player.stop()
-        queue = []
+        subscription.unsubscribe()
+        subscription = null
+        sendToLog('leave', 'audio player unsubscribed')
         conn.destroy()
-        is_playing = false
+        conn = null
+        sendToLog('leave', 'bot left')
     }
     if (message.command === 'skip' || message.command === 's') {
         vc = msg.member.voice.channel
